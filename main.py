@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import requests
-import os
 from fastapi.responses import JSONResponse
 
 app = FastAPI()
@@ -14,36 +13,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # <- we will load your API key as an ENV variable
+# YouTube API key inserted directly
+YOUTUBE_API_KEY = "AIzaSyBYOYmj8-Urp_19ofjXCErvBB2NkEcKAwY"
 
 @app.get("/api/transcript/{video_id}")
 def get_transcript(video_id: str):
     try:
-        captions_url = f"https://www.googleapis.com/youtube/v3/captions?videoId={video_id}&part=snippet&key={YOUTUBE_API_KEY}"
+        captions_url = (
+            f"https://www.googleapis.com/youtube/v3/captions?videoId={video_id}&key={YOUTUBE_API_KEY}&part=snippet"
+        )
         captions_response = requests.get(captions_url)
 
         if captions_response.status_code != 200:
-            return JSONResponse(status_code=400, content={"success": False, "error": "Failed to fetch captions info."})
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": f"Failed to fetch captions. Status code: {captions_response.status_code}"}
+            )
 
         captions_data = captions_response.json()
-        items = captions_data.get("items", [])
-
-        if not items:
-            return JSONResponse(status_code=404, content={"success": False, "error": "No captions found."})
-
-        caption_id = items[0]["id"]
-
-        caption_download_url = f"https://www.googleapis.com/youtube/v3/captions/{caption_id}?tfmt=sbv&key={YOUTUBE_API_KEY}"
-        caption_response = requests.get(caption_download_url)
-
-        if caption_response.status_code != 200:
-            return JSONResponse(status_code=400, content={"success": False, "error": "Failed to download caption text."})
-
-        return {"success": True, "transcript": caption_response.text}
+        return {"success": True, "captions": captions_data}
 
     except Exception as e:
-        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": str(e)}
+        )
 
 @app.get("/")
 def root():
-    return {"message": "YouTube API Transcript Server is running."}
+    return {"message": "YouTube Transcript Scraper API is running."}
